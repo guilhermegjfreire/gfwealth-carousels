@@ -20,6 +20,10 @@ on:
         description: 'true = nao dorme ate 08:00 (teste)'
         required: false
         default: 'false'
+      diagnose:
+        description: 'true = so imprime as contas/IG ids do token e sai'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -39,11 +43,21 @@ jobs:
           FORCE: ${{ github.event.inputs.carousel }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           SKIP_SLEEP: ${{ github.event.inputs.skip_sleep }}
+          DIAGNOSE: ${{ github.event.inputs.diagnose }}
         run: |
           set -euo pipefail
           G="https://graph.facebook.com/${GRAPH_VERSION}"
           [ -z "${IG_USER_ID:-}" ] && { echo "::error::IG_USER_ID (repo variable) nao definido"; exit 1; } || true
           [ -z "${IG_TOKEN:-}" ] && { echo "::error::IG_ACCESS_TOKEN (secret) nao definido"; exit 1; } || true
+
+          if [ "${DIAGNOSE:-false}" = "true" ]; then
+            echo "===== GET /me ====="
+            curl -s "$G/me?fields=id,name,username,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq . || true
+            echo "===== GET /me/accounts ====="
+            curl -s "$G/me/accounts?fields=name,id,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq . || true
+            echo "===== fim diagnostico ====="
+            exit 0
+          fi
 
           today=$(TZ=America/Sao_Paulo date +%F)
           car="${FORCE:-}"
