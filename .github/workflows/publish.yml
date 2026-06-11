@@ -51,10 +51,12 @@ jobs:
           [ -z "${IG_TOKEN:-}" ] && { echo "::error::IG_ACCESS_TOKEN (secret) nao definido"; exit 1; } || true
 
           if [ "${DIAGNOSE:-false}" = "true" ]; then
+            echo "===== /me ====="
+            curl -sg "$G/me?fields=id,name&access_token=${IG_TOKEN}" | jq .
             echo "===== permissoes concedidas ====="
             curl -sg "$G/me/permissions?access_token=${IG_TOKEN}" | jq -r '.data[]? | select(.status=="granted") | .permission' | tr '\n' ' '; echo
-            echo "===== /me/accounts (todas ligacoes IG) ====="
-            curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username},connected_instagram_account{id,username},instagram_accounts{id,username}&access_token=${IG_TOKEN}" | jq .
+            echo "===== /me/accounts (paginas + IG) ====="
+            curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq .
             echo "===== fim diagnostico ====="
             exit 0
           fi
