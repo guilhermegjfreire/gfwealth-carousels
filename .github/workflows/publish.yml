@@ -52,9 +52,9 @@ jobs:
 
           if [ "${DIAGNOSE:-false}" = "true" ]; then
             echo "===== GET /me ====="
-            curl -s "$G/me?fields=id,name,username,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq . || true
+            curl -sg "$G/me?fields=id,name,username,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq . || true
             echo "===== GET /me/accounts ====="
-            curl -s "$G/me/accounts?fields=name,id,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq . || true
+            curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq . || true
             echo "===== fim diagnostico ====="
             exit 0
           fi
