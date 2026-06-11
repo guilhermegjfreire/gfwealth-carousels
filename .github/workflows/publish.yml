@@ -56,7 +56,12 @@ jobs:
             echo "===== permissoes concedidas ====="
             curl -sg "$G/me/permissions?access_token=${IG_TOKEN}" | jq -r '.data[]? | select(.status=="granted") | .permission' | tr '\n' ' '; echo
             echo "===== /me/accounts (paginas + IG) ====="
-            curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq .
+            curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username,name}&access_token=${IG_TOKEN}" | jq -c '.data'
+            echo "===== checagem direta de IG por pagina ====="
+            for PID in 435250816339278 134987083038284; do
+              echo "--- page $PID ---"
+              curl -sg "$G/$PID?fields=name,instagram_business_account{id,username},connected_instagram_account{id,username}&access_token=${IG_TOKEN}" | jq -c .
+            done
             echo "===== fim diagnostico ====="
             exit 0
           fi
