@@ -47,7 +47,6 @@ jobs:
         run: |
           set -euo pipefail
           G="https://graph.facebook.com/${GRAPH_VERSION}"
-          [ -z "${IG_USER_ID:-}" ] && { echo "::error::IG_USER_ID (repo variable) nao definido"; exit 1; } || true
           [ -z "${IG_TOKEN:-}" ] && { echo "::error::IG_ACCESS_TOKEN (secret) nao definido"; exit 1; } || true
 
           if [ "${DIAGNOSE:-false}" = "true" ]; then
@@ -65,6 +64,14 @@ jobs:
             echo "===== fim diagnostico ====="
             exit 0
           fi
+
+          # Descobre o IG_USER_ID do @gfwealth_ a partir do token (auto; nao depende de variavel fixa)
+          IG_USER_ID=$(curl -sg "$G/me/accounts?fields=instagram_business_account{id,username}&access_token=${IG_TOKEN}" | jq -r '.data // [] | map(.instagram_business_account // empty) | map(select(.username=="gfwealth_")) | .[0].id // empty')
+          if [ -z "$IG_USER_ID" ]; then
+            echo "::warning::@gfwealth_ ainda nao acessivel a este token (estrutura do Meta nao liberou). Nada a publicar; encerrando OK."
+            exit 0
+          fi
+          echo "IG_USER_ID (descoberto): $IG_USER_ID"
 
           today=$(TZ=America/Sao_Paulo date +%F)
           car="${FORCE:-}"
