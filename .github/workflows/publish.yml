@@ -51,15 +51,19 @@ jobs:
 
           if [ "${DIAGNOSE:-false}" = "true" ]; then
             echo "===== /me ====="
-            curl -sg "$G/me?fields=id,name&access_token=${IG_TOKEN}" | jq -c .
+            ME=$(curl -sg "$G/me?fields=id,name&access_token=${IG_TOKEN}")
+            echo "$ME" | jq -c .
+            ERR=$(echo "$ME" | jq -r '.error.message // empty')
             ACC=$(curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username}&access_token=${IG_TOKEN}")
             echo "===== paginas acessiveis ====="
             echo "$ACC" | jq -c '.data'
             IGID=$(echo "$ACC" | jq -r '.data // [] | map(.instagram_business_account // empty) | map(select(.username=="gfwealth_")) | .[0].id // empty')
             if [ -n "$IGID" ]; then
               echo "GFWEALTH_FOUND id=$IGID"
+            elif [ -n "$ERR" ]; then
+              echo "TOKEN_INVALIDO: $ERR"
             else
-              echo "GFWEALTH_NOT_FOUND (o @gfwealth_ ainda nao esta acessivel a este token)"
+              echo "GFWEALTH_NOT_FOUND (token OK, mas @gfwealth_ ainda nao acessivel a este token)"
             fi
             echo "===== fim diagnostico ====="
             exit 0
