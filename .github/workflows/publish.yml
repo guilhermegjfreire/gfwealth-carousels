@@ -1,27 +1,29 @@
 name: publish-carousel
 
-# Publica o carrossel do dia no Instagram (@gfwealth_) via Graph API.
-# Datas: 12/06->c1, 13/06->c2, 14/06->c3, 15/06->c4 (horario de Brasilia).
+# Publica carrosseis no Instagram (@gfwealth_) e Facebook via Graph API.
+# Semana de popularização (29/06–01/07): 3 posts/dia (08h, 12h, 18h BRT).
+# A partir de 02/07: 1 post/dia (08h BRT).
 on:
   schedule:
-    - cron: '0 10 * * *'    # 07:00 BRT (primario) -> o job dorme ate 08:00 BRT
-    - cron: '30 11 * * *'   # 08:30 BRT (recuperacao) -> roda so se o primario falhou
+    - cron: '0 11 * * *'   # 08:00 BRT (slot 1)
+    - cron: '0 15 * * *'   # 12:00 BRT (slot 2)
+    - cron: '0 21 * * *'   # 18:00 BRT (slot 3)
   workflow_dispatch:
     inputs:
       carousel:
-        description: 'Forcar carrossel (c1/c2/c3/c4). Vazio = pela data.'
+        description: 'Forcar carrossel (ex: c8). Vazio = pela data/slot.'
         required: false
         default: ''
       dry_run:
-        description: 'true = cria os conteineres mas NAO publica (teste)'
+        description: 'true = cria containers mas NAO publica'
         required: false
         default: 'false'
       skip_sleep:
-        description: 'true = nao dorme ate 08:00 (teste)'
+        description: 'true = nao dorme ate o horario do slot'
         required: false
         default: 'false'
       diagnose:
-        description: 'true = so imprime as contas/IG ids do token e sai'
+        description: 'true = imprime info do token e sai'
         required: false
         default: 'false'
 
@@ -35,8 +37,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Publicar carrossel do dia
         env:
-          IG_USER_ID: ${{ vars.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          FB_PAGE_ID: '110564095455148'
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           GRAPH_VERSION: v25.0
@@ -47,80 +49,89 @@ jobs:
         run: |
           set -euo pipefail
           G="https://graph.facebook.com/${GRAPH_VERSION}"
-          [ -z "${IG_TOKEN:-}" ] && { echo "::error::IG_ACCESS_TOKEN (secret) nao definido"; exit 1; } || true
+          [ -z "${IG_TOKEN:-}" ] && { echo "::error::IG_ACCESS_TOKEN nao definido"; exit 1; } || true
 
           if [ "${DIAGNOSE:-false}" = "true" ]; then
             echo "===== /me ====="
             ME=$(curl -sg "$G/me?fields=id,name&access_token=${IG_TOKEN}")
             echo "$ME" | jq -c .
-            ERR=$(echo "$ME" | jq -r '.error.message // empty')
             ACC=$(curl -sg "$G/me/accounts?fields=name,id,instagram_business_account{id,username}&access_token=${IG_TOKEN}")
             echo "===== paginas acessiveis ====="
             echo "$ACC" | jq -c '.data'
             IGID=$(echo "$ACC" | jq -r '.data // [] | map(.instagram_business_account // empty) | map(select(.username=="gfwealth_")) | .[0].id // empty')
-            if [ -n "$IGID" ]; then
-              echo "GFWEALTH_FOUND id=$IGID"
-            elif [ -n "$ERR" ]; then
-              echo "TOKEN_INVALIDO: $ERR"
-            else
-              echo "GFWEALTH_NOT_FOUND (token OK, mas @gfwealth_ ainda nao acessivel a este token)"
-            fi
+            [ -n "$IGID" ] && echo "GFWEALTH_FOUND id=$IGID" || echo "GFWEALTH_NOT_FOUND"
             echo "===== fim diagnostico ====="
             exit 0
           fi
 
-          # Descobre o IG_USER_ID do @gfwealth_ a partir do token (auto; nao depende de variavel fixa)
+          # Descobre IG_USER_ID automaticamente
           IG_USER_ID=$(curl -sg "$G/me/accounts?fields=instagram_business_account{id,username}&access_token=${IG_TOKEN}" | jq -r '.data // [] | map(.instagram_business_account // empty) | map(select(.username=="gfwealth_")) | .[0].id // empty')
           if [ -z "$IG_USER_ID" ]; then
-            echo "::warning::@gfwealth_ ainda nao acessivel a este token (estrutura do Meta nao liberou). Nada a publicar; encerrando OK."
+            echo "::warning::@gfwealth_ nao acessivel. Encerrando OK."
             exit 0
           fi
-          echo "IG_USER_ID (descoberto): $IG_USER_ID"
+          echo "IG_USER_ID: $IG_USER_ID"
+
+          # Detecta slot atual por hora UTC (BRT = UTC-3)
+          hour_utc=$(TZ=UTC date +%-H)
+          if   [ "$hour_utc" -ge 11 ] && [ "$hour_utc" -lt 15 ]; then slot=1
+          elif [ "$hour_utc" -ge 15 ] && [ "$hour_utc" -lt 21 ]; then slot=2
+          else slot=3; fi
+          echo "Slot detectado: $slot (UTC hora $hour_utc)"
 
           today=$(TZ=America/Sao_Paulo date +%F)
           car="${FORCE:-}"
+
           if [ -z "$car" ]; then
-            case "$today" in
-              # 2026-06-12 (c1) e' publicado MANUALMENTE pelo Guilherme no Business Suite.
-              2026-06-13) car=c2;;
-              2026-06-14) car=c3;;
-              2026-06-15) car=c4;;
-              *) echo "Sem carrossel agendado para hoje ($today). Encerrando."; exit 0;;
+            case "${today}_${slot}" in
+              # Semana de popularização: 3/dia
+              2026-06-29_1) car=c8;;
+              2026-06-29_2) car=c9;;
+              2026-06-29_3) car=c10;;
+              2026-06-30_1) car=c11;;
+              2026-06-30_2) car=c12;;
+              2026-06-30_3) car=c13;;
+              2026-07-01_1) car=c14;;
+              # 1/dia a partir daqui (slot 1 = 08h BRT). Adicionar novos carrosseis.
+              *) echo "Sem carrossel para $today slot $slot. Encerrando."; exit 0;;
             esac
           fi
-          echo "Data BRT: $today | Carrossel: $car"
+          echo "Data BRT: $today | Slot: $slot | Carrossel: $car"
 
           if [ -f "published/${car}.done" ]; then
             echo "Ja publicado ($car): $(cat published/${car}.done). Encerrando."
             exit 0
           fi
 
-          # Dorme ate 08:00 BRT (a nao ser que skip_sleep)
+          # Dorme ate o horario exato do slot (a nao ser que skip_sleep)
           if [ "${SKIP_SLEEP:-false}" != "true" ]; then
-            target=$(TZ=America/Sao_Paulo date -d 'today 08:00:00' +%s)
+            case "$slot" in
+              1) target_brt="08:00:00";;
+              2) target_brt="12:00:00";;
+              3) target_brt="18:00:00";;
+            esac
+            target=$(TZ=America/Sao_Paulo date -d "today ${target_brt}" +%s)
             now=$(date +%s)
             if [ "$now" -lt "$target" ]; then
-              echo "Dormindo $((target-now))s ate 08:00 BRT..."
+              echo "Dormindo $((target-now))s ate ${target_brt} BRT..."
               sleep $((target-now))
             fi
           fi
 
-          # 1) Um conteiner-item por slide, na ordem (slide01 = capa)
+          # ── INSTAGRAM ──────────────────────────────────────────────────────
           children=""
           for f in $(ls "${car}"/*.png | sort); do
             url="https://raw.githubusercontent.com/${REPO}/${SHA}/${f}"
-            echo "-> item: $url"
+            echo "-> IG item: $url"
             resp=$(curl -s -X POST "$G/${IG_USER_ID}/media" \
               --data-urlencode "image_url=${url}" \
               -d "is_carousel_item=true" \
               -d "access_token=${IG_TOKEN}")
             id=$(echo "$resp" | jq -r '.id // empty')
-            [ -z "$id" ] && { echo "::error::Falha no item ${f}: $resp"; exit 1; } || true
+            [ -z "$id" ] && { echo "::error::Falha no item IG ${f}: $resp"; exit 1; } || true
             children="${children:+$children,}$id"
           done
-          echo "Itens: $children"
 
-          # 2) Conteiner do carrossel com a legenda integra
           caption=$(cat "captions/${car}.txt")
           cresp=$(curl -s -X POST "$G/${IG_USER_ID}/media" \
             --data-urlencode "caption=${caption}" \
@@ -128,40 +139,65 @@ jobs:
             -d "children=${children}" \
             -d "access_token=${IG_TOKEN}")
           cid=$(echo "$cresp" | jq -r '.id // empty')
-          [ -z "$cid" ] && { echo "::error::Falha no conteiner do carrossel: $cresp"; exit 1; } || true
-          echo "Conteiner: $cid"
+          [ -z "$cid" ] && { echo "::error::Falha no container IG: $cresp"; exit 1; } || true
 
-          # 3) Espera ficar FINISHED
           st=""
           for i in $(seq 1 40); do
             st=$(curl -s "$G/${cid}?fields=status_code&access_token=${IG_TOKEN}" | jq -r '.status_code // empty')
-            echo "status_code: ${st:-?} (tentativa $i)"
+            echo "IG status: ${st:-?} (tentativa $i)"
             [ "$st" = "FINISHED" ] && break
-            if [ "$st" = "ERROR" ]; then
-              echo "::error::Conteiner em ERROR: $(curl -s "$G/${cid}?fields=status&access_token=${IG_TOKEN}")"; exit 1
-            fi
+            [ "$st" = "ERROR" ] && { echo "::error::Container IG em ERROR"; exit 1; }
             sleep 6
           done
-          [ "$st" != "FINISHED" ] && { echo "::error::Conteiner nao ficou FINISHED a tempo (status=$st)"; exit 1; } || true
+          [ "$st" != "FINISHED" ] && { echo "::error::Container IG nao ficou FINISHED (status=$st)"; exit 1; } || true
 
           if [ "${DRY_RUN:-false}" = "true" ]; then
-            echo "DRY RUN OK -- conteineres criados e validos, NAO publicando. Tudo pronto p/ o agendado."
+            echo "DRY RUN OK -- containers criados, NAO publicando."
             exit 0
           fi
 
-          # 4) Publica
           presp=$(curl -s -X POST "$G/${IG_USER_ID}/media_publish" \
             -d "creation_id=${cid}" \
             -d "access_token=${IG_TOKEN}")
-          pid=$(echo "$presp" | jq -r '.id // empty')
-          [ -z "$pid" ] && { echo "::error::Falha ao publicar: $presp"; exit 1; } || true
-          echo "PUBLICADO! media id: $pid"
+          ig_pid=$(echo "$presp" | jq -r '.id // empty')
+          [ -z "$ig_pid" ] && { echo "::error::Falha ao publicar IG: $presp"; exit 1; } || true
+          echo "INSTAGRAM PUBLICADO! media id: $ig_pid"
 
-          # 5) Marca como publicado (idempotencia entre runs)
+          # ── FACEBOOK ───────────────────────────────────────────────────────
+          # Sobe cada slide como foto nao-publicada e cria um post multi-foto.
+          # Requer permissao pages_manage_posts no token; falha graciosamente se ausente.
+          fb_media_ids=""
+          for f in $(ls "${car}"/*.png | sort); do
+            url="https://raw.githubusercontent.com/${REPO}/${SHA}/${f}"
+            resp=$(curl -sf -X POST "$G/${FB_PAGE_ID}/photos" \
+              --data-urlencode "url=${url}" \
+              -d "published=false" \
+              -d "access_token=${IG_TOKEN}" 2>/dev/null || echo '{}')
+            fid=$(echo "$resp" | jq -r '.id // empty')
+            [ -n "$fid" ] && fb_media_ids="${fb_media_ids}{\"media_fbid\":\"${fid}\"},"
+          done
+
+          if [ -n "$fb_media_ids" ]; then
+            fb_media_json="[${fb_media_ids%,}]"
+            fb_resp=$(curl -sf -X POST "$G/${FB_PAGE_ID}/feed" \
+              --data-urlencode "message=${caption}" \
+              --data-urlencode "attached_media=${fb_media_json}" \
+              -d "access_token=${IG_TOKEN}" 2>/dev/null || echo '{}')
+            fb_pid=$(echo "$fb_resp" | jq -r '.id // empty')
+            if [ -n "$fb_pid" ]; then
+              echo "FACEBOOK PUBLICADO! post id: $fb_pid"
+            else
+              echo "::warning::Facebook nao publicou (token pode precisar de pages_manage_posts): $fb_resp"
+            fi
+          else
+            echo "::warning::Facebook: nenhuma foto carregou. Verificar permissao pages_manage_posts."
+          fi
+
+          # ── MARCA COMO PUBLICADO (idempotencia) ───────────────────────────
           mkdir -p published
-          echo "$pid @ $(date -u +%FT%TZ)" > "published/${car}.done"
+          echo "ig:${ig_pid} @ $(date -u +%FT%TZ)" > "published/${car}.done"
           git config user.name "carousel-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "published/${car}.done"
-          git commit -q -m "publicado ${car}: ${pid}"
+          git commit -q -m "publicado ${car} slot${slot}: ${ig_pid}"
           git push
