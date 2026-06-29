@@ -92,7 +92,15 @@ jobs:
               2026-06-30_2) car=c12;;
               2026-06-30_3) car=c13;;
               2026-07-01_1) car=c14;;
-              # 1/dia a partir daqui (slot 1 = 08h BRT). Adicionar novos carrosseis.
+              # 1/dia a partir de 02/07 (slot 1 = 08h BRT)
+              2026-07-02_1) car=c15;;
+              2026-07-03_1) car=c16;;
+              2026-07-04_1) car=c17;;
+              2026-07-05_1) car=c18;;
+              2026-07-06_1) car=c19;;
+              2026-07-07_1) car=c20;;
+              2026-07-08_1) car=c21;;
+              # Adicionar novos carrosseis abaixo (gerados toda segunda-feira).
               *) echo "Sem carrossel para $today slot $slot. Encerrando."; exit 0;;
             esac
           fi
