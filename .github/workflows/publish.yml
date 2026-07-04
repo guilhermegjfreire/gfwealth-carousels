@@ -96,10 +96,10 @@ jobs:
               2026-07-02_1) car=c15;;
               2026-07-03_1) car=c16;;
               2026-07-04_1) car=c17;;
-              2026-07-05_1) car=c18;;
-              2026-07-06_1) car=c19;;
-              2026-07-07_1) car=c20;;
-              2026-07-08_1) car=c21;;
+              2026-07-05_1) car=c23;;
+              2026-07-06_1) car=c24;;
+              2026-07-07_1) car=c25;;
+              2026-07-08_1) car=c26;;
               # Adicionar novos carrosseis abaixo (gerados toda segunda-feira).
               *) echo "Sem carrossel para $today slot $slot. Encerrando."; exit 0;;
             esac
