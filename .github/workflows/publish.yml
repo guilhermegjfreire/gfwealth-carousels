@@ -128,7 +128,7 @@ jobs:
 
           # ── INSTAGRAM ──────────────────────────────────────────────────────
           children=""
-          for f in $(ls "${car}"/*.png | sort); do
+          for f in $(ls "${car}"/*.png "${car}"/*.jpg 2>/dev/null | sort); do
             url="https://raw.githubusercontent.com/${REPO}/${SHA}/${f}"
             echo "-> IG item: $url"
             resp=$(curl -s -X POST "$G/${IG_USER_ID}/media" \
@@ -175,7 +175,7 @@ jobs:
           # Sobe cada slide como foto nao-publicada e cria um post multi-foto.
           # Requer permissao pages_manage_posts no token; falha graciosamente se ausente.
           fb_media_ids=""
-          for f in $(ls "${car}"/*.png | sort); do
+          for f in $(ls "${car}"/*.png "${car}"/*.jpg 2>/dev/null | sort); do
             url="https://raw.githubusercontent.com/${REPO}/${SHA}/${f}"
             resp=$(curl -sf -X POST "$G/${FB_PAGE_ID}/photos" \
               --data-urlencode "url=${url}" \
