@@ -114,6 +114,13 @@ jobs:
               2026-07-20_1) car=c51;;
               2026-07-21_1) car=c52;;
               2026-07-22_1) car=c53;;
+              2026-07-23_1) car=c54;;
+              2026-07-24_1) car=c55;;
+              2026-07-25_1) car=c56;;
+              2026-07-26_1) car=c57;;
+              2026-07-27_1) car=c58;;
+              2026-07-28_1) car=c59;;
+              2026-07-29_1) car=c60;;
               # Trilha "Casos de Elite" (arquitetura I) — 3x/semana, slot 2 = 12h BRT, soma ao 1/dia acima
               2026-07-06_2) car=e1;;
               2026-07-08_2) car=e2;;
@@ -122,6 +129,9 @@ jobs:
               2026-07-15_2) car=e7;;
               2026-07-17_2) car=e8;;
               2026-07-20_2) car=e9;;
+              2026-07-22_2) car=e10;;
+              2026-07-24_2) car=e11;;
+              2026-07-27_2) car=e12;;
               # Adicionar novos carrosseis abaixo (gerados toda segunda-feira).
               *) echo "Sem carrossel para $today slot $slot. Encerrando."; exit 0;;
             esac
