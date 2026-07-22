@@ -3,11 +3,15 @@ name: publish-carousel
 # Publica carrosseis no Instagram (@gfwealth_) e Facebook via Graph API.
 # Semana de popularização (29/06–01/07): 3 posts/dia (08h, 12h, 18h BRT).
 # A partir de 02/07: 1 post/dia (08h BRT).
+# ATIVIDADE ENCERRADA em 2026-07-21 por decisão do Guilherme: publicação automática de
+# carrosseis desligada. Os crons abaixo estão comentados de propósito. O workflow_dispatch
+# segue disponível para publicação manual pontual. Para religar, descomente os 3 crons
+# e reative o workflow (gh workflow enable publish-carousel).
 on:
-  schedule:
-    - cron: '0 11 * * *'   # 08:00 BRT (slot 1)
-    - cron: '0 15 * * *'   # 12:00 BRT (slot 2)
-    - cron: '0 21 * * *'   # 18:00 BRT (slot 3)
+  # schedule:
+  #   - cron: '0 11 * * *'   # 08:00 BRT (slot 1)
+  #   - cron: '0 15 * * *'   # 12:00 BRT (slot 2)
+  #   - cron: '0 21 * * *'   # 18:00 BRT (slot 3)
   workflow_dispatch:
     inputs:
       carousel:
