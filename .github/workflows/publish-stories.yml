@@ -69,11 +69,25 @@ jobs:
               continue
             fi
 
-            presp=$(curl -s -X POST "$G/${IG_USER_ID}/media_publish" \
-              -d "creation_id=${cid}" \
-              -d "access_token=${IG_TOKEN}")
-            pid=$(echo "$presp" | jq -r '.id // empty')
-            [ -z "$pid" ] && { echo "::error::Falha ao publicar ${f}: $presp"; exit 1; } || true
+            # O container pode reportar FINISHED e ainda nao estar publicavel (code 9007).
+            # Espera e tenta de novo antes de desistir.
+            sleep 8
+            pid=""
+            for try in $(seq 1 8); do
+              presp=$(curl -s -X POST "$G/${IG_USER_ID}/media_publish" \
+                -d "creation_id=${cid}" \
+                -d "access_token=${IG_TOKEN}")
+              pid=$(echo "$presp" | jq -r '.id // empty')
+              [ -n "$pid" ] && break
+              code=$(echo "$presp" | jq -r '.error.code // empty')
+              if [ "$code" = "9007" ]; then
+                echo "   midia ainda nao pronta (tentativa $try), aguardando..."
+                sleep 12
+                continue
+              fi
+              echo "::error::Falha ao publicar ${f}: $presp"; exit 1
+            done
+            [ -z "$pid" ] && { echo "::error::Timeout publicando ${f} (code 9007 persistente)"; exit 1; } || true
             echo "STORY PUBLICADO: ${f} -> ${pid}"
             ids="${ids:+$ids,}$pid"
             sleep 5
