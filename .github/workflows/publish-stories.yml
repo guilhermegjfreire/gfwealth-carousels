@@ -1,0 +1,93 @@
+name: publish-stories
+
+# Publica uma sequencia de STORIES no Instagram (@gfwealth_) via Graph API.
+# Cada imagem vira um story, publicado na ordem do nome do arquivo (story01, story02, ...).
+# Manual apenas (workflow_dispatch) - nao ha cron.
+on:
+  workflow_dispatch:
+    inputs:
+      pasta:
+        description: 'Pasta com os stories (ex: globalstory-stories)'
+        required: true
+      dry_run:
+        description: 'true = cria containers mas NAO publica'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publicar sequencia de stories
+        env:
+          IG_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          GRAPH_VERSION: v25.0
+          PASTA: ${{ github.event.inputs.pasta }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          G="https://graph.facebook.com/${GRAPH_VERSION}"
+          [ -z "${IG_TOKEN:-}" ] && { echo "::error::IG_ACCESS_TOKEN nao definido"; exit 1; } || true
+
+          IG_USER_ID=$(curl -sg "$G/me/accounts?fields=instagram_business_account{id,username}&access_token=${IG_TOKEN}" | jq -r '.data // [] | map(.instagram_business_account // empty) | map(select(.username=="gfwealth_")) | .[0].id // empty')
+          [ -z "$IG_USER_ID" ] && { echo "::error::@gfwealth_ nao acessivel"; exit 1; } || true
+          echo "IG_USER_ID: $IG_USER_ID"
+
+          if [ -f "published/${PASTA}.stories.done" ]; then
+            echo "Ja publicado: $(cat published/${PASTA}.stories.done). Encerrando."
+            exit 0
+          fi
+
+          ids=""
+          for f in $(ls "${PASTA}"/*.jpg "${PASTA}"/*.png 2>/dev/null | sort); do
+            url="https://raw.githubusercontent.com/${REPO}/${SHA}/${f}"
+            echo "-> story: $url"
+            resp=$(curl -s -X POST "$G/${IG_USER_ID}/media" \
+              --data-urlencode "image_url=${url}" \
+              -d "media_type=STORIES" \
+              -d "access_token=${IG_TOKEN}")
+            cid=$(echo "$resp" | jq -r '.id // empty')
+            [ -z "$cid" ] && { echo "::error::Falha no container de ${f}: $resp"; exit 1; } || true
+
+            st=""
+            for i in $(seq 1 30); do
+              st=$(curl -s "$G/${cid}?fields=status_code&access_token=${IG_TOKEN}" | jq -r '.status_code // empty')
+              [ "$st" = "FINISHED" ] && break
+              [ "$st" = "ERROR" ] && { echo "::error::Container em ERROR para ${f}"; exit 1; }
+              sleep 4
+            done
+            [ "$st" != "FINISHED" ] && { echo "::error::Container nao ficou FINISHED (${f}, status=$st)"; exit 1; } || true
+
+            if [ "${DRY_RUN:-false}" = "true" ]; then
+              echo "DRY RUN - container ${cid} criado, nao publicando."
+              continue
+            fi
+
+            presp=$(curl -s -X POST "$G/${IG_USER_ID}/media_publish" \
+              -d "creation_id=${cid}" \
+              -d "access_token=${IG_TOKEN}")
+            pid=$(echo "$presp" | jq -r '.id // empty')
+            [ -z "$pid" ] && { echo "::error::Falha ao publicar ${f}: $presp"; exit 1; } || true
+            echo "STORY PUBLICADO: ${f} -> ${pid}"
+            ids="${ids:+$ids,}$pid"
+            sleep 5
+          done
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            echo "DRY RUN OK."
+            exit 0
+          fi
+
+          mkdir -p published
+          echo "stories:${ids} @ $(date -u +%FT%TZ)" > "published/${PASTA}.stories.done"
+          git config user.name "carousel-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "published/${PASTA}.stories.done"
+          git commit -q -m "publicados stories ${PASTA}"
+          git push
