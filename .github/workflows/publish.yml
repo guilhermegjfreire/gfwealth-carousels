@@ -42,7 +42,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # Baixa so a pasta do carrossel, as legendas e os marcadores: o repo inteiro tem 2,8 GB e travava o checkout.
       - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            captions
+            published
+            ${{ github.event.inputs.carousel }}
       - name: Publicar carrossel do dia
         env:
           IG_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
