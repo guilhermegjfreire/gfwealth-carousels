@@ -30,6 +30,10 @@ on:
         description: 'true = imprime info do token e sai'
         required: false
         default: 'false'
+      facebook:
+        description: 'false = publica so no Instagram'
+        required: false
+        default: 'true'
 
 permissions:
   contents: write
@@ -50,6 +54,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           SKIP_SLEEP: ${{ github.event.inputs.skip_sleep }}
           DIAGNOSE: ${{ github.event.inputs.diagnose }}
+          FACEBOOK: ${{ github.event.inputs.facebook }}
         run: |
           set -euo pipefail
           G="https://graph.facebook.com/${GRAPH_VERSION}"
@@ -211,7 +216,8 @@ jobs:
           # Sobe cada slide como foto nao-publicada e cria um post multi-foto.
           # Requer permissao pages_manage_posts no token; falha graciosamente se ausente.
           fb_media_ids=""
-          for f in $(ls "${car}"/*.png "${car}"/*.jpg 2>/dev/null | sort); do
+          if [ "${FACEBOOK:-true}" = "false" ]; then echo "Facebook desligado nesta execucao."; fi
+          [ "${FACEBOOK:-true}" = "false" ] || for f in $(ls "${car}"/*.png "${car}"/*.jpg 2>/dev/null | sort); do
             url="https://raw.githubusercontent.com/${REPO}/${SHA}/${f}"
             resp=$(curl -sf -X POST "$G/${FB_PAGE_ID}/photos" \
               --data-urlencode "url=${url}" \
